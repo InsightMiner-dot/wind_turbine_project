@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flower Classifier</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --sidebar-width: 250px;
+            --sidebar-collapsed-width: 60px;
+            --transition-time: 0.3s;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            transition: margin-left var(--transition-time);
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            background-color: #343a40;
+            color: white;
+            height: 100vh;
+            padding: 20px 10px;
+            position: fixed;
+            width: var(--sidebar-width);
+            transition: all var(--transition-time);
+            overflow: hidden;
+            z-index: 1000;
+        }
+        
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+            padding: 20px 5px;
+        }
+        
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 30px;
+            transition: margin-left var(--transition-time);
+        }
+        
+        .sidebar.collapsed + .main-content {
+            margin-left: var(--sidebar-collapsed-width);
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ced4da;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #6c757d;
+        }
+        
+        .prediction-card {
+            transition: transform 0.3s;
+        }
+        
+        .prediction-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .model-info {
+            background-color: #495057;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+            color: #4fc08d;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all var(--transition-time);
+        }
+        
+        .logo.collapsed {
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo.collapsed span {
+            display: none;
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            cursor: pointer;
+            color: rgba(255,255,255,0.7);
+            transition: all var(--transition-time);
+        }
+        
+        .sidebar.collapsed .sidebar-toggle {
+            right: 50%;
+            transform: translateX(50%);
+        }
+        
+        .sidebar-toggle:hover {
+            color: white;
+        }
+        
+        .run-id {
+            word-break: break-all;
+            font-size: 0.8rem;
+            background-color: rgba(0,0,0,0.2);
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .collapsed-content {
+            transition: all var(--transition-time);
+        }
+        
+        .sidebar.collapsed .collapsed-content {
+            display: none;
+        }
+        
+        .icon-only {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .sidebar.collapsed .icon-only {
+            display: flex;
+        }
+        
+        .icon-only .bi {
+            font-size: 1.5rem;
+            color: rgba(255,255,255,0.7);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .icon-only .bi:hover {
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: var(--sidebar-collapsed-width);
+            }
+            
+            .sidebar:not(.collapsed) {
+                width: 100%;
+                z-index: 1050;
+            }
+            
+            .main-content {
+                margin-left: var(--sidebar-collapsed-width);
+            }
+            
+            .sidebar:not(.collapsed) + .main-content {
+                margin-left: 0;
+                filter: brightness(0.7);
+                pointer-events: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-toggle" onclick="toggleSidebar()">
+            <i class="bi bi-list" id="sidebarIcon"></i>
+        </div>
+        <div class="logo" id="logo">
+            <i class="bi bi-flower2"></i>
+            <span id="logoText">FlowerAI</span>
+        </div>
+        
+        <!-- Expanded Content -->
+        <div class="collapsed-content">
+            <div class="model-info">
+                <h5>Model Information</h5>
+                <hr style="background-color: rgba(255,255,255,0.1);">
+                <p><strong>Run ID:</strong><br>
+                <small class="run-id">{{ run_id }}</small></p>
+                <p><strong>Accuracy:</strong><br>
+                <span class="badge bg-success">{{ accuracy }}%</span></p>
+            </div>
+            <div class="mt-4">
+                <h5>Instructions</h5>
+                <hr style="background-color: rgba(255,255,255,0.1);">
+                <ol class="small">
+                    <li>Click "Choose Files"</li>
+                    <li>Select flower images</li>
+                    <li>Click "Predict" button</li>
+                    <li>View results</li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Collapsed Icons Only -->
+        <div class="icon-only">
+            <i class="bi bi-info-circle" title="Model Information" onclick="expandSidebar()"></i>
+            <i class="bi bi-list-ol" title="Instructions" onclick="expandSidebar()"></i>
+        </div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <div class="container-fluid">
+            <div class="row mb-4">
+                <div class="col">
+                    <h1 class="display-4">Flower Classification</h1>
+                    <p class="lead">Upload images of flowers to classify them using our AI model</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="card-title">Upload Images</h2>
+                            <form method="post" action="/predict" enctype="multipart/form-data" id="uploadForm">
+                                <input type="hidden" name="run_id" value="{{ run_id }}">
+                                <input type="hidden" name="accuracy" value="{{ accuracy }}">
+                                <div class="upload-area mb-3">
+                                    <i class="bi bi-cloud-arrow-up fs-1 text-muted"></i>
+                                    <p class="mt-2">Drag & drop images here or click to browse</p>
+                                    <input type="file" name="images" multiple class="d-none" id="fileInput">
+                                    <button type="button" class="btn btn-primary mt-2" onclick="document.getElementById('fileInput').click()">
+                                        Choose Files
+                                    </button>
+                                </div>
+                                <div id="fileList" class="mb-3"></div>
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="bi bi-lightning-charge"></i> Predict
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% if predictions %}
+                    <div class="card mt-4">
+                        <div class="card-body">
+                            <h3 class="card-title">Predictions</h3>
+                            <div class="row">
+                                {% for pred in predictions %}
+                                <div class="col-md-4 mb-4">
+                                    <div class="card prediction-card h-100">
+                                        <img src="{{ url_for('static', filename='uploads/' ~ pred.filename) }}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ pred.class }}</h5>
+                                            <div class="progress mb-3">
+                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ pred.confidence }}%" 
+                                                    aria-valuenow="{{ pred.confidence }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                            <p class="card-text"><strong>Confidence:</strong> {{ pred.confidence }}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Sidebar toggle functionality
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const logo = document.getElementById('logo');
+            
+            sidebar.classList.toggle('collapsed');
+            logo.classList.toggle('collapsed');
+            
+            const sidebarIcon = document.getElementById('sidebarIcon');
+            if (sidebar.classList.contains('collapsed')) {
+                sidebarIcon.classList.remove('bi-list');
+                sidebarIcon.classList.add('bi-arrows-angle-expand');
+            } else {
+                sidebarIcon.classList.remove('bi-arrows-angle-expand');
+                sidebarIcon.classList.add('bi-list');
+            }
+        }
+
+        // Expand sidebar when clicking on icons
+        function expandSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar.classList.contains('collapsed')) {
+                toggleSidebar();
+            }
+        }
+
+        // Display selected file names
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            if (this.files.length > 0) {
+                const list = document.createElement('ul');
+                list.className = 'list-group';
+                
+                for (let i = 0; i < this.files.length; i++) {
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    item.innerHTML = `
+                        <span>${this.files[i].name}</span>
+                        <span class="badge bg-primary rounded-pill">${(this.files[i].size / 1024).toFixed(2)} KB</span>
+                    `;
+                    list.appendChild(item);
+                }
+                
+                fileList.appendChild(list);
+                fileList.insertAdjacentHTML('beforeend', 
+                    `<small class="text-muted">${this.files.length} file(s) selected - ${formatFileSize(this.files)}</small>`);
+            }
+        });
+
+        // Format total file size
+        function formatFileSize(files) {
+            let totalSize = 0;
+            for (let i = 0; i < files.length; i++) {
+                totalSize += files[i].size;
+            }
+            
+            if (totalSize < 1024) {
+                return totalSize + ' bytes';
+            } else if (totalSize < 1024 * 1024) {
+                return (totalSize / 1024).toFixed(2) + ' KB';
+            } else {
+                return (totalSize / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.upload-area');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            uploadArea.classList.add('bg-light');
+        }
+
+        function unhighlight() {
+            uploadArea.classList.remove('bg-light');
+        }
+
+        uploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            const input = document.getElementById('fileInput');
+            input.files = files;
+            
+            // Trigger change event
+            const event = new Event('change');
+            input.dispatchEvent(event);
+        }
+
+        // Initialize tooltips for icons
+        document.addEventListener('DOMContentLoaded', function() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
+</body>
+</html>
